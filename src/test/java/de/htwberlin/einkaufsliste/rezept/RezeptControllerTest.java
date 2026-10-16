@@ -8,6 +8,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
@@ -32,5 +33,23 @@ class RezeptControllerTest {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(content().string(containsString("Spaghetti Carbonara")));
+    }
+
+    @Test
+    void gibEinzelnesRezeptZurueck() throws Exception {
+        when(rezeptService.findeNachId(1L)).thenReturn(Optional.of(new Rezept(1L, "Spaghetti Carbonara", 2, "demo")));
+
+        mockMvc.perform(get("/api/rezepte/1"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(content().string(containsString("Spaghetti Carbonara")));
+    }
+
+    @Test
+    void gibNotFoundBeiUnbekannterId() throws Exception {
+        when(rezeptService.findeNachId(999L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(get("/api/rezepte/999"))
+            .andExpect(status().isNotFound());
     }
 }
