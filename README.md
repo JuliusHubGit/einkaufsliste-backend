@@ -25,6 +25,14 @@ Geplante Use-Cases:
 Das zugehörige Frontend (Vue 3) liegt in
 [einkaufsliste-frontend](https://github.com/JuliusHubGit/einkaufsliste-frontend).
 
+## Live
+
+- Frontend: <https://einkaufsliste-frontend-7yzr.onrender.com>
+- Backend: <https://einkaufsliste-backend-ft3s.onrender.com/api/rezepte>
+
+Beide laufen im Free-Tier von Render und schlafen nach 15 Minuten ohne Aufruf ein; der erste
+Aufruf danach dauert bis zu einer Minute.
+
 ## Technik
 
 - Java 25, Spring Boot 4, Gradle
