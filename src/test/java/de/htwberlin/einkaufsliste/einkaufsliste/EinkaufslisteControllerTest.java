@@ -8,13 +8,16 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Optional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -103,5 +106,56 @@ class EinkaufslisteControllerTest {
         mockMvc.perform(get("/api/einkaufsliste/vorschlaege").param("q", "mi"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$[0]").value("Milch"));
+    }
+
+    @Test
+    void aendertEintragMit200() throws Exception {
+        when(einkaufslisteService.aendern(1L, new EintragAenderung("Spaghetti", 2, true)))
+            .thenReturn(Optional.of(new Einkaufslisteneintrag(1L, "Spaghetti", 2, "200 g", 1, true, "demo")));
+
+        mockMvc.perform(put("/api/einkaufsliste/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Spaghetti\", \"stueckzahl\": 2, \"erledigt\": true}"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.erledigt").value(true))
+            .andExpect(jsonPath("$.stueckzahl").value(2));
+    }
+
+    @Test
+    void aendernGibt404BeiUnbekannterId() throws Exception {
+        when(einkaufslisteService.aendern(99L, new EintragAenderung("Butter", 1, false)))
+            .thenReturn(Optional.empty());
+
+        mockMvc.perform(put("/api/einkaufsliste/99")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"Butter\", \"stueckzahl\": 1, \"erledigt\": false}"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void aendernLehntUngueltigeEingabeMitFeldfehlernAb() throws Exception {
+        mockMvc.perform(put("/api/einkaufsliste/1")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\": \"\", \"stueckzahl\": 1, \"erledigt\": false}"))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.feldfehler.name").value("Bitte einen Namen eingeben"));
+
+        verify(einkaufslisteService, never()).aendern(anyLong(), any());
+    }
+
+    @Test
+    void loeschtEintragMit204() throws Exception {
+        when(einkaufslisteService.loeschen(1L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/einkaufsliste/1"))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void loeschenGibt404BeiUnbekannterId() throws Exception {
+        when(einkaufslisteService.loeschen(99L)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/einkaufsliste/99"))
+            .andExpect(status().isNotFound());
     }
 }

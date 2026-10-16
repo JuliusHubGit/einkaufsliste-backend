@@ -2,7 +2,9 @@ package de.htwberlin.einkaufsliste.einkaufsliste;
 
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,5 +48,21 @@ public class EinkaufslisteController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Einkaufslisteneintrag> aendern(@PathVariable Long id,
+                                                        @Valid @RequestBody EintragAenderung aenderung) {
+        return einkaufslisteService.aendern(id, aenderung)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> loeschen(@PathVariable Long id) {
+        if (einkaufslisteService.loeschen(id)) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.notFound().build();
     }
 }

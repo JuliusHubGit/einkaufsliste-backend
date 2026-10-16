@@ -75,4 +75,34 @@ class EinkaufslisteServiceTest {
     void schlaegtOhneSuchtextAlleNamenAlphabetischVor() {
         assertThat(service.vorschlaege("")).containsExactly("Eier", "Linsen", "Milch", "Spaghetti");
     }
+
+    @Test
+    void aendertNameStueckzahlUndErledigtAberNichtDieRezeptmenge() {
+        Einkaufslisteneintrag eintrag = service.aendern(1L, new EintragAenderung(" Vollkornspaghetti ", 2, true))
+            .orElseThrow();
+
+        assertThat(eintrag.getName()).isEqualTo("Vollkornspaghetti");
+        assertThat(eintrag.getStueckzahl()).isEqualTo(2);
+        assertThat(eintrag.isErledigt()).isTrue();
+        assertThat(eintrag.getRezeptmenge()).isEqualTo("200 g");
+    }
+
+    @Test
+    void aendernMeldetUnbekannteId() {
+        assertThat(service.aendern(99L, new EintragAenderung("Butter", 1, false))).isEmpty();
+    }
+
+    @Test
+    void loeschtVorhandenenEintrag() {
+        assertThat(service.loeschen(2L)).isTrue();
+        assertThat(service.findAlle()).extracting(Einkaufslisteneintrag::getId).doesNotContain(2L);
+    }
+
+    @Test
+    void loeschenMeldetUnbekannteId() {
+        int vorher = service.findAlle().size();
+
+        assertThat(service.loeschen(99L)).isFalse();
+        assertThat(service.findAlle()).hasSize(vorher);
+    }
 }

@@ -11,6 +11,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -70,6 +71,29 @@ public class EinkaufslisteService {
         eintraege.add(eintrag);
         log.info("Einkaufslisteneintrag {} angelegt: {}", eintrag.getId(), eintrag.getName());
         return eintrag;
+    }
+
+    public synchronized Optional<Einkaufslisteneintrag> aendern(Long id, EintragAenderung aenderung) {
+        Optional<Einkaufslisteneintrag> gefunden = eintraege.stream()
+            .filter(eintrag -> eintrag.getId().equals(id))
+            .findFirst();
+        gefunden.ifPresentOrElse(eintrag -> {
+            eintrag.setName(aenderung.name().trim());
+            eintrag.setStueckzahl(aenderung.stueckzahl());
+            eintrag.setErledigt(aenderung.erledigt());
+            log.info("Einkaufslisteneintrag {} geaendert", id);
+        }, () -> log.warn("Einkaufslisteneintrag {} zum Aendern nicht gefunden", id));
+        return gefunden;
+    }
+
+    public synchronized boolean loeschen(Long id) {
+        boolean geloescht = eintraege.removeIf(eintrag -> eintrag.getId().equals(id));
+        if (geloescht) {
+            log.info("Einkaufslisteneintrag {} geloescht", id);
+        } else {
+            log.warn("Einkaufslisteneintrag {} zum Loeschen nicht gefunden", id);
+        }
+        return geloescht;
     }
 
     /**
