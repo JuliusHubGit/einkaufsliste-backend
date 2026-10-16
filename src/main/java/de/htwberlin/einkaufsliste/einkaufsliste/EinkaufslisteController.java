@@ -1,12 +1,16 @@
 package de.htwberlin.einkaufsliste.einkaufsliste;
 
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -22,6 +26,17 @@ public class EinkaufslisteController {
     @GetMapping
     public ResponseEntity<List<Einkaufslisteneintrag>> alleEintraege() {
         return ResponseEntity.ok(einkaufslisteService.findAlle());
+    }
+
+    @PostMapping
+    public ResponseEntity<Einkaufslisteneintrag> anlegen(@Valid @RequestBody NeuerEintrag neuerEintrag) {
+        Einkaufslisteneintrag eintrag = einkaufslisteService.anlegen(neuerEintrag);
+        return ResponseEntity.created(URI.create("/api/einkaufsliste/" + eintrag.getId())).body(eintrag);
+    }
+
+    @GetMapping("/vorschlaege")
+    public ResponseEntity<List<String>> vorschlaege(@RequestParam(defaultValue = "") String q) {
+        return ResponseEntity.ok(einkaufslisteService.vorschlaege(q));
     }
 
     @PutMapping("/reihenfolge")

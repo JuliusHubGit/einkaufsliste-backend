@@ -45,4 +45,34 @@ class EinkaufslisteServiceTest {
         assertThatThrownBy(() -> service.reihenfolgeAendern(List.of(1L, 1L, 2L, 3L)))
             .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void legtEintragAmEndeDerListeAn() {
+        Einkaufslisteneintrag eintrag = service.anlegen(new NeuerEintrag("  Butter ", 2));
+
+        assertThat(eintrag.getId()).isEqualTo(5L);
+        assertThat(eintrag.getName()).isEqualTo("Butter");
+        assertThat(eintrag.getStueckzahl()).isEqualTo(2);
+        assertThat(eintrag.getRezeptmenge()).isNull();
+        assertThat(eintrag.isErledigt()).isFalse();
+        assertThat(service.findAlle()).last().extracting(Einkaufslisteneintrag::getName).isEqualTo("Butter");
+    }
+
+    @Test
+    void schlaegtPassendeNamenVor() {
+        assertThat(service.vorschlaege("li")).containsExactly("Linsen");
+        assertThat(service.vorschlaege("  MI ")).containsExactly("Milch");
+    }
+
+    @Test
+    void schlaegtGleicheNamenNurEinmalVor() {
+        service.anlegen(new NeuerEintrag("milch", 1));
+
+        assertThat(service.vorschlaege("milch")).containsExactly("Milch");
+    }
+
+    @Test
+    void schlaegtOhneSuchtextAlleNamenAlphabetischVor() {
+        assertThat(service.vorschlaege("")).containsExactly("Eier", "Linsen", "Milch", "Spaghetti");
+    }
 }
