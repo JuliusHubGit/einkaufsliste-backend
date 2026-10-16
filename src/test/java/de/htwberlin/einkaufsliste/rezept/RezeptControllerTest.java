@@ -12,6 +12,7 @@ import java.util.Optional;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -50,6 +51,22 @@ class RezeptControllerTest {
         when(rezeptService.findeNachId(999L)).thenReturn(Optional.empty());
 
         mockMvc.perform(get("/api/rezepte/999"))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void loeschtRezeptMit204() throws Exception {
+        when(rezeptService.loeschen(1L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/rezepte/1"))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void gibt404BeiUnbekanntemRezept() throws Exception {
+        when(rezeptService.loeschen(99L)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/rezepte/99"))
             .andExpect(status().isNotFound());
     }
 }

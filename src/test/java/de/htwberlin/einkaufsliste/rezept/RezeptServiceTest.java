@@ -2,10 +2,7 @@ package de.htwberlin.einkaufsliste.rezept;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
 
 class RezeptServiceTest {
 
@@ -13,14 +10,31 @@ class RezeptServiceTest {
 
     @Test
     void findeNachIdLiefertVorhandenesRezept() {
-        Optional<Rezept> rezept = rezeptService.findeNachId(1L);
-
-        assertTrue(rezept.isPresent());
-        assertEquals("Spaghetti Carbonara", rezept.get().getTitel());
+        assertThat(rezeptService.findeNachId(1L))
+            .map(Rezept::getTitel)
+            .contains("Spaghetti Carbonara");
     }
 
     @Test
     void findeNachIdLiefertLeerBeiUnbekannterId() {
-        assertTrue(rezeptService.findeNachId(999L).isEmpty());
+        assertThat(rezeptService.findeNachId(999L)).isEmpty();
+    }
+
+    @Test
+    void loeschtVorhandenesRezept() {
+        boolean geloescht = rezeptService.loeschen(1L);
+
+        assertThat(geloescht).isTrue();
+        assertThat(rezeptService.findAlle()).extracting(Rezept::getId).doesNotContain(1L);
+    }
+
+    @Test
+    void meldetUnbekannteIdBeimLoeschen() {
+        int vorher = rezeptService.findAlle().size();
+
+        boolean geloescht = rezeptService.loeschen(99L);
+
+        assertThat(geloescht).isFalse();
+        assertThat(rezeptService.findAlle()).hasSize(vorher);
     }
 }

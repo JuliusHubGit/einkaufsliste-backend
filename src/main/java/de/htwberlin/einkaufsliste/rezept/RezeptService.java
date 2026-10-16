@@ -28,4 +28,14 @@ public class RezeptService {
             .filter(rezept -> rezept.getId().equals(id))
             .findFirst();
     }
+
+    public boolean loeschen(Long id) {
+        boolean geloescht = rezepte.removeIf(rezept -> rezept.getId().equals(id));
+        if (geloescht) {
+            log.info("Rezept {} geloescht", id);
+        } else {
+            log.warn("Rezept {} zum Loeschen nicht gefunden", id);
+        }
+        return geloescht;
+    }
 }
