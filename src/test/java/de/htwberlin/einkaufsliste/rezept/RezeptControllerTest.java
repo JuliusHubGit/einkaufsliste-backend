@@ -11,6 +11,7 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,5 +33,21 @@ class RezeptControllerTest {
             .andExpect(status().isOk())
             .andExpect(content().contentType(MediaType.APPLICATION_JSON))
             .andExpect(content().string(containsString("Spaghetti Carbonara")));
+    }
+
+    @Test
+    void loeschtRezeptMit204() throws Exception {
+        when(rezeptService.loeschen(1L)).thenReturn(true);
+
+        mockMvc.perform(delete("/api/rezepte/1"))
+            .andExpect(status().isNoContent());
+    }
+
+    @Test
+    void gibt404BeiUnbekanntemRezept() throws Exception {
+        when(rezeptService.loeschen(99L)).thenReturn(false);
+
+        mockMvc.perform(delete("/api/rezepte/99"))
+            .andExpect(status().isNotFound());
     }
 }
