@@ -3,8 +3,8 @@ package de.htwberlin.einkaufsliste.einkaufsliste;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -21,20 +20,16 @@ public class EinkaufslisteService {
 
     private static final Logger log = LoggerFactory.getLogger(EinkaufslisteService.class);
 
-    private final List<Einkaufslisteneintrag> eintraege = new ArrayList<>(List.of(
-        new Einkaufslisteneintrag(1L, "Spaghetti", 1, "200 g", 1, false, "demo"),
-        new Einkaufslisteneintrag(2L, "Eier", 1, null, 2, false, "demo"),
-        new Einkaufslisteneintrag(3L, "Milch", 2, null, 3, false, "demo"),
-        new Einkaufslisteneintrag(4L, "Linsen", 1, "250 g", 4, true, "demo")
-    ));
+    private final EinkaufslisteneintragRepository repository;
 
-    private final AtomicLong naechsteId = new AtomicLong(5);
+    public EinkaufslisteService(EinkaufslisteneintragRepository repository) {
+        this.repository = repository;
+    }
 
-    public synchronized List<Einkaufslisteneintrag> findAlle() {
+    public List<Einkaufslisteneintrag> findAlle() {
+        List<Einkaufslisteneintrag> eintraege = repository.findAllByOrderByReihenfolgeAsc();
         log.info("Gebe {} Einkaufslisteneintraege zurueck", eintraege.size());
-        return eintraege.stream()
-            .sorted(Comparator.comparingInt(Einkaufslisteneintrag::getReihenfolge))
-            .toList();
+        return eintraege;
     }
 
     /**
@@ -42,8 +37,9 @@ public class EinkaufslisteService {
      *
      * @throws IllegalArgumentException bei unbekannten, fehlenden oder doppelten IDs
      */
-    public synchronized List<Einkaufslisteneintrag> reihenfolgeAendern(List<Long> ids) {
-        Map<Long, Einkaufslisteneintrag> nachId = eintraege.stream()
+    @Transactional
+    public List<Einkaufslisteneintrag> reihenfolgeAendern(List<Long> ids) {
+        Map<Long, Einkaufslisteneintrag> nachId = repository.findAll().stream()
             .collect(Collectors.toMap(Einkaufslisteneintrag::getId, Function.identity()));
         if (ids == null || ids.size() != nachId.size() || !new HashSet<>(ids).equals(nachId.keySet())) {
             throw new IllegalArgumentException("Die IDs muessen jeden Eintrag genau einmal enthalten");
@@ -51,59 +47,65 @@ public class EinkaufslisteService {
         for (int i = 0; i < ids.size(); i++) {
             nachId.get(ids.get(i)).setReihenfolge(i + 1);
         }
+        repository.saveAll(nachId.values());
         log.info("Reihenfolge der Einkaufsliste geaendert: {}", ids);
-        return findAlle();
+        return nachId.values().stream()
+            .sorted(Comparator.comparingInt(Einkaufslisteneintrag::getReihenfolge))
+            .toList();
     }
 
-    public synchronized Einkaufslisteneintrag anlegen(NeuerEintrag neuerEintrag) {
-        int letztePosition = eintraege.stream()
+    @Transactional
+    public Einkaufslisteneintrag anlegen(NeuerEintrag neuerEintrag) {
+        int letztePosition = repository.findAll().stream()
             .mapToInt(Einkaufslisteneintrag::getReihenfolge)
             .max()
             .orElse(0);
-        Einkaufslisteneintrag eintrag = new Einkaufslisteneintrag(
-            naechsteId.getAndIncrement(),
+        Einkaufslisteneintrag eintrag = repository.save(new Einkaufslisteneintrag(
+            null,
             neuerEintrag.name().trim(),
             neuerEintrag.stueckzahl(),
             null,
             letztePosition + 1,
             false,
-            "demo");
-        eintraege.add(eintrag);
+            "demo"));
         log.info("Einkaufslisteneintrag {} angelegt: {}", eintrag.getId(), eintrag.getName());
         return eintrag;
     }
 
-    public synchronized Optional<Einkaufslisteneintrag> aendern(Long id, EintragAenderung aenderung) {
-        Optional<Einkaufslisteneintrag> gefunden = eintraege.stream()
-            .filter(eintrag -> eintrag.getId().equals(id))
-            .findFirst();
-        gefunden.ifPresentOrElse(eintrag -> {
+    @Transactional
+    public Optional<Einkaufslisteneintrag> aendern(Long id, EintragAenderung aenderung) {
+        Optional<Einkaufslisteneintrag> gefunden = repository.findById(id).map(eintrag -> {
             eintrag.setName(aenderung.name().trim());
             eintrag.setStueckzahl(aenderung.stueckzahl());
             eintrag.setErledigt(aenderung.erledigt());
             log.info("Einkaufslisteneintrag {} geaendert", id);
-        }, () -> log.warn("Einkaufslisteneintrag {} zum Aendern nicht gefunden", id));
+            return repository.save(eintrag);
+        });
+        if (gefunden.isEmpty()) {
+            log.warn("Einkaufslisteneintrag {} zum Aendern nicht gefunden", id);
+        }
         return gefunden;
     }
 
-    public synchronized boolean loeschen(Long id) {
-        boolean geloescht = eintraege.removeIf(eintrag -> eintrag.getId().equals(id));
-        if (geloescht) {
-            log.info("Einkaufslisteneintrag {} geloescht", id);
-        } else {
+    @Transactional
+    public boolean loeschen(Long id) {
+        if (!repository.existsById(id)) {
             log.warn("Einkaufslisteneintrag {} zum Loeschen nicht gefunden", id);
+            return false;
         }
-        return geloescht;
+        repository.deleteById(id);
+        log.info("Einkaufslisteneintrag {} geloescht", id);
+        return true;
     }
 
     /**
      * Namensvorschlaege aus den vorhandenen Eintraegen: ohne Duplikate (Gross-/Kleinschreibung
      * egal), alphabetisch, hoechstens 10.
      */
-    public synchronized List<String> vorschlaege(String suchtext) {
+    public List<String> vorschlaege(String suchtext) {
         String suche = normalisieren(suchtext);
         Map<String, String> nachNormalform = new LinkedHashMap<>();
-        for (Einkaufslisteneintrag eintrag : eintraege) {
+        for (Einkaufslisteneintrag eintrag : repository.findAll()) {
             String normalform = normalisieren(eintrag.getName());
             if (normalform.contains(suche)) {
                 nachNormalform.putIfAbsent(normalform, eintrag.getName());
