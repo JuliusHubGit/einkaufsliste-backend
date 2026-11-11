@@ -1,5 +1,6 @@
 package de.htwberlin.einkaufsliste.einkaufsliste;
 
+import de.htwberlin.einkaufsliste.rezept.Zutat;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -9,12 +10,14 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.ArgumentMatchers.anyIterable;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -143,5 +146,93 @@ class EinkaufslisteServiceTest {
 
         assertThat(service.loeschen(99L)).isFalse();
         verify(repository, never()).deleteById(99L);
+    }
+
+    /** Wie die Datenbank: neue Eintraege bekommen beim Speichern eine Id. */
+    private void speichernVergibtIds() {
+        AtomicLong naechsteId = new AtomicLong(100);
+        doAnswer(aufruf -> {
+            Einkaufslisteneintrag eintrag = aufruf.getArgument(0);
+            if (eintrag.getId() == null) {
+                eintrag.setId(naechsteId.getAndIncrement());
+            }
+            return eintrag;
+        }).when(repository).save(any(Einkaufslisteneintrag.class));
+    }
+
+    @Test
+    void uebernimmtNeueZutatAlsEintragAmEnde() {
+        speichernVergibtIds();
+
+        List<Einkaufslisteneintrag> betroffen = service.zutatenUebernehmen(List.of(new Zutat(" Butter ", 250, "g")));
+
+        assertThat(betroffen).singleElement().satisfies(eintrag -> {
+            assertThat(eintrag.getName()).isEqualTo("Butter");
+            assertThat(eintrag.getStueckzahl()).isEqualTo(1);
+            assertThat(eintrag.getRezeptmenge()).isEqualTo("250 g");
+            assertThat(eintrag.getReihenfolge()).isEqualTo(5);
+            assertThat(eintrag.isErledigt()).isFalse();
+        });
+    }
+
+    @Test
+    void ergaenztBeiGleichemNamenNurDieRezeptmenge() {
+        speichernVergibtIds();
+
+        List<Einkaufslisteneintrag> betroffen = service.zutatenUebernehmen(List.of(
+            new Zutat("  SPAGHETTI ", 100, "g"),
+            new Zutat("eier", 3, "Stück")));
+
+        assertThat(betroffen).extracting(Einkaufslisteneintrag::getId).containsExactly(1L, 2L);
+        Einkaufslisteneintrag spaghetti = betroffen.getFirst();
+        assertThat(spaghetti.getName()).isEqualTo("Spaghetti");
+        assertThat(spaghetti.getRezeptmenge()).isEqualTo("200 g, 100 g");
+        assertThat(spaghetti.getStueckzahl()).isEqualTo(1);
+        assertThat(betroffen.get(1).getRezeptmenge()).isEqualTo("3 Stück");
+        assertThat(betroffen.get(1).getStueckzahl()).isEqualTo(1);
+    }
+
+    @Test
+    void fasstMehrfachVorkommendeZutatZuEinemEintragZusammen() {
+        speichernVergibtIds();
+
+        List<Einkaufslisteneintrag> betroffen = service.zutatenUebernehmen(List.of(
+            new Zutat("Mehl", 200, "g"),
+            new Zutat(" mehl", 50, "g")));
+
+        assertThat(betroffen).singleElement().satisfies(eintrag -> {
+            assertThat(eintrag.getName()).isEqualTo("Mehl");
+            assertThat(eintrag.getRezeptmenge()).isEqualTo("200 g, 50 g");
+            assertThat(eintrag.getStueckzahl()).isEqualTo(1);
+        });
+    }
+
+    @Test
+    void setztErledigtenEintragBeimUebernehmenWiederAufOffen() {
+        speichernVergibtIds();
+
+        Einkaufslisteneintrag linsen = service.zutatenUebernehmen(List.of(new Zutat("Linsen", 100, "g"))).getFirst();
+
+        assertThat(linsen.getId()).isEqualTo(4L);
+        assertThat(linsen.isErledigt()).isFalse();
+        assertThat(linsen.getRezeptmenge()).isEqualTo("250 g, 100 g");
+    }
+
+    @Test
+    void schreibtMengenDeutschOhneUnnoetigeNachkommastellen() {
+        speichernVergibtIds();
+
+        List<Einkaufslisteneintrag> betroffen = service.zutatenUebernehmen(List.of(
+            new Zutat("Sahne", 0.25, "l"),
+            new Zutat("Zucker", 2.0, "EL")));
+
+        assertThat(betroffen).extracting(Einkaufslisteneintrag::getRezeptmenge).containsExactly("0,25 l", "2 EL");
+    }
+
+    @Test
+    void uebernimmtNichtsBeiRezeptOhneZutaten() {
+        assertThat(service.zutatenUebernehmen(List.of())).isEmpty();
+        verify(repository, never()).save(any());
+        verify(repository, never()).saveAll(anyIterable());
     }
 }
