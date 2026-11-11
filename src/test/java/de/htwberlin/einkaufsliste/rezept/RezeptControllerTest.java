@@ -1,6 +1,8 @@
 package de.htwberlin.einkaufsliste.rezept;
 
 import de.htwberlin.einkaufsliste.fehler.FeldfehlerException;
+import de.htwberlin.einkaufsliste.einkaufsliste.EinkaufslisteService;
+import de.htwberlin.einkaufsliste.einkaufsliste.Einkaufslisteneintrag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -33,6 +35,9 @@ class RezeptControllerTest {
 
     @MockitoBean
     private RezeptService rezeptService;
+
+    @MockitoBean
+    private EinkaufslisteService einkaufslisteService;
 
     @Test
     void gibAlleRezepteAlsJsonZurueck() throws Exception {
@@ -184,5 +189,29 @@ class RezeptControllerTest {
                     """))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.feldfehler['schritte[0].zutaten']").value("Der Schritt verweist auf eine unbekannte Zutat"));
+    }
+
+    @Test
+    void uebernimmtZutatenAufDieEinkaufsliste() throws Exception {
+        Rezept rezept = new Rezept(1L, "Pfannkuchen", 2, Schwierigkeit.EINFACH, "demo");
+        rezept.zutatHinzufuegen(new Zutat("Mehl", 200, "g"));
+        when(rezeptService.findeNachId(1L)).thenReturn(Optional.of(rezept));
+        when(einkaufslisteService.zutatenUebernehmen(rezept.getZutaten()))
+            .thenReturn(List.of(new Einkaufslisteneintrag(7L, "Mehl", 1, "200 g", 5, false, "demo")));
+
+        mockMvc.perform(post("/api/rezepte/1/zutaten-hinzufuegen"))
+            .andExpect(status().isOk())
+            .andExpect(content().contentType(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$[0].name").value("Mehl"))
+            .andExpect(jsonPath("$[0].rezeptmenge").value("200 g"));
+    }
+
+    @Test
+    void zutatenHinzufuegenGibt404BeiUnbekanntemRezept() throws Exception {
+        when(rezeptService.findeNachId(99L)).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/api/rezepte/99/zutaten-hinzufuegen"))
+            .andExpect(status().isNotFound());
+        verify(einkaufslisteService, never()).zutatenUebernehmen(any());
     }
 }

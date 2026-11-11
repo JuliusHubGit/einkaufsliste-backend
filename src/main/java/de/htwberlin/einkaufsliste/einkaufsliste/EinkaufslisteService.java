@@ -1,10 +1,14 @@
 package de.htwberlin.einkaufsliste.einkaufsliste;
 
+import de.htwberlin.einkaufsliste.rezept.Zutat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -72,6 +76,49 @@ public class EinkaufslisteService {
         return eintrag;
     }
 
+    /**
+     * Uebernimmt Zutaten auf die Einkaufsliste (ADR 0001): Gibt es schon einen Eintrag mit gleichem
+     * normalisierten Namen, wird nur die Rezeptmenge angehaengt und der Eintrag wieder offen gesetzt,
+     * die Stueckzahl bleibt. Sonst entsteht ein neuer Eintrag mit Stueckzahl 1 am Ende der Liste.
+     *
+     * @return die neu angelegten und ergaenzten Eintraege, jeder hoechstens einmal
+     */
+    @Transactional
+    public List<Einkaufslisteneintrag> zutatenUebernehmen(List<Zutat> zutaten) {
+        List<Einkaufslisteneintrag> vorhandene = new ArrayList<>(repository.findAllByOrderByReihenfolgeAsc());
+        int letztePosition = vorhandene.stream().mapToInt(Einkaufslisteneintrag::getReihenfolge).max().orElse(0);
+        Map<Long, Einkaufslisteneintrag> betroffen = new LinkedHashMap<>();
+
+        for (Zutat zutat : zutaten) {
+            String normalform = Namen.normalisieren(zutat.getName());
+            String menge = mengeAlsText(zutat);
+            Optional<Einkaufslisteneintrag> passend = vorhandene.stream()
+                .filter(eintrag -> Namen.normalisieren(eintrag.getName()).equals(normalform))
+                .findFirst();
+            Einkaufslisteneintrag eintrag;
+            if (passend.isPresent()) {
+                eintrag = passend.get();
+                eintrag.setRezeptmenge(eintrag.getRezeptmenge() == null || eintrag.getRezeptmenge().isBlank()
+                    ? menge
+                    : eintrag.getRezeptmenge() + ", " + menge);
+                eintrag.setErledigt(false);
+                eintrag = repository.save(eintrag);
+            } else {
+                eintrag = repository.save(new Einkaufslisteneintrag(
+                    null, zutat.getName().trim(), 1, menge, ++letztePosition, false, "demo"));
+                vorhandene.add(eintrag);
+            }
+            betroffen.put(eintrag.getId(), eintrag);
+        }
+        log.info("{} Zutaten uebernommen, {} Einkaufslisteneintraege betroffen", zutaten.size(), betroffen.size());
+        return List.copyOf(betroffen.values());
+    }
+
+    private static String mengeAlsText(Zutat zutat) {
+        DecimalFormat format = new DecimalFormat("0.##", DecimalFormatSymbols.getInstance(Locale.GERMAN));
+        return format.format(zutat.getMenge()) + " " + zutat.getEinheit();
+    }
+
     @Transactional
     public Optional<Einkaufslisteneintrag> aendern(Long id, EintragAenderung aenderung) {
         Optional<Einkaufslisteneintrag> gefunden = repository.findById(id).map(eintrag -> {
@@ -103,10 +150,10 @@ public class EinkaufslisteService {
      * egal), alphabetisch, hoechstens 10.
      */
     public List<String> vorschlaege(String suchtext) {
-        String suche = normalisieren(suchtext);
+        String suche = Namen.normalisieren(suchtext);
         Map<String, String> nachNormalform = new LinkedHashMap<>();
         for (Einkaufslisteneintrag eintrag : repository.findAll()) {
-            String normalform = normalisieren(eintrag.getName());
+            String normalform = Namen.normalisieren(eintrag.getName());
             if (normalform.contains(suche)) {
                 nachNormalform.putIfAbsent(normalform, eintrag.getName());
             }
@@ -117,7 +164,4 @@ public class EinkaufslisteService {
             .toList();
     }
 
-    private static String normalisieren(String text) {
-        return text == null ? "" : text.trim().toLowerCase(Locale.GERMAN);
-    }
 }

@@ -1,5 +1,7 @@
 package de.htwberlin.einkaufsliste.rezept;
 
+import de.htwberlin.einkaufsliste.einkaufsliste.EinkaufslisteService;
+import de.htwberlin.einkaufsliste.einkaufsliste.Einkaufslisteneintrag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -18,9 +20,11 @@ import java.util.List;
 public class RezeptController {
 
     private final RezeptService rezeptService;
+    private final EinkaufslisteService einkaufslisteService;
 
-    public RezeptController(RezeptService rezeptService) {
+    public RezeptController(RezeptService rezeptService, EinkaufslisteService einkaufslisteService) {
         this.rezeptService = rezeptService;
+        this.einkaufslisteService = einkaufslisteService;
     }
 
     @GetMapping
@@ -39,6 +43,13 @@ public class RezeptController {
     public ResponseEntity<Rezept> anlegen(@Valid @RequestBody NeuesRezept neuesRezept) {
         Rezept rezept = rezeptService.anlegen(neuesRezept);
         return ResponseEntity.created(URI.create("/api/rezepte/" + rezept.getId())).body(rezept);
+    }
+
+    @PostMapping("/{id}/zutaten-hinzufuegen")
+    public ResponseEntity<List<Einkaufslisteneintrag>> zutatenHinzufuegen(@PathVariable Long id) {
+        return rezeptService.findeNachId(id)
+            .map(rezept -> ResponseEntity.ok(einkaufslisteService.zutatenUebernehmen(rezept.getZutaten())))
+            .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")

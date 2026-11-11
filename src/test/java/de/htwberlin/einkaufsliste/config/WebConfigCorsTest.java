@@ -2,6 +2,7 @@ package de.htwberlin.einkaufsliste.config;
 
 import de.htwberlin.einkaufsliste.rezept.RezeptController;
 import de.htwberlin.einkaufsliste.rezept.RezeptService;
+import de.htwberlin.einkaufsliste.einkaufsliste.EinkaufslisteService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -22,6 +23,9 @@ class WebConfigCorsTest {
 
     @MockitoBean
     private RezeptService rezeptService;
+
+    @MockitoBean
+    private EinkaufslisteService einkaufslisteService;
 
     @Test
     void erlaubtKonfigurierteOrigin() throws Exception {
