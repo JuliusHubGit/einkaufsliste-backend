@@ -3,8 +3,8 @@ package de.htwberlin.einkaufsliste.rezept;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,29 +13,30 @@ public class RezeptService {
 
     private static final Logger log = LoggerFactory.getLogger(RezeptService.class);
 
-    private final List<Rezept> rezepte = new ArrayList<>(List.of(
-        new Rezept(1L, "Spaghetti Carbonara", 2, "demo"),
-        new Rezept(2L, "Linsensuppe", 4, "demo")
-    ));
+    private final RezeptRepository rezeptRepository;
+
+    public RezeptService(RezeptRepository rezeptRepository) {
+        this.rezeptRepository = rezeptRepository;
+    }
 
     public List<Rezept> findAlle() {
+        List<Rezept> rezepte = rezeptRepository.findAll();
         log.info("Gebe {} Rezepte zurueck", rezepte.size());
         return rezepte;
     }
 
     public Optional<Rezept> findeNachId(Long id) {
-        return rezepte.stream()
-            .filter(rezept -> rezept.getId().equals(id))
-            .findFirst();
+        return rezeptRepository.findById(id);
     }
 
+    @Transactional
     public boolean loeschen(Long id) {
-        boolean geloescht = rezepte.removeIf(rezept -> rezept.getId().equals(id));
-        if (geloescht) {
-            log.info("Rezept {} geloescht", id);
-        } else {
+        if (!rezeptRepository.existsById(id)) {
             log.warn("Rezept {} zum Loeschen nicht gefunden", id);
+            return false;
         }
-        return geloescht;
+        rezeptRepository.deleteById(id);
+        log.info("Rezept {} geloescht", id);
+        return true;
     }
 }
