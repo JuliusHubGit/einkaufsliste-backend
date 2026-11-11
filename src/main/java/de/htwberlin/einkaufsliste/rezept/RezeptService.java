@@ -30,6 +30,20 @@ public class RezeptService {
     }
 
     @Transactional
+    public Rezept anlegen(NeuesRezept neuesRezept) {
+        Rezept rezept = new Rezept(null, neuesRezept.titel().trim(), neuesRezept.portionen(),
+            neuesRezept.schwierigkeit(), "demo");
+        if (neuesRezept.zutaten() != null) {
+            for (NeuesRezept.NeueZutat zutat : neuesRezept.zutaten()) {
+                rezept.zutatHinzufuegen(new Zutat(zutat.name().trim(), zutat.menge(), zutat.einheit().trim()));
+            }
+        }
+        Rezept gespeichert = rezeptRepository.save(rezept);
+        log.info("Rezept {} angelegt: {}", gespeichert.getId(), gespeichert.getTitel());
+        return gespeichert;
+    }
+
+    @Transactional
     public boolean loeschen(Long id) {
         if (!rezeptRepository.existsById(id)) {
             log.warn("Rezept {} zum Loeschen nicht gefunden", id);
