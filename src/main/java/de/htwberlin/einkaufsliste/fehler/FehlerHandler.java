@@ -45,4 +45,9 @@ public class FehlerHandler {
         }
         return ResponseEntity.badRequest().body(Map.of("feldfehler", feldfehler));
     }
+
+    @ExceptionHandler(FeldfehlerException.class)
+    public ResponseEntity<Map<String, Map<String, String>>> fachlicherFehler(FeldfehlerException e) {
+        return ResponseEntity.badRequest().body(Map.of("feldfehler", e.getFeldfehler()));
+    }
 }

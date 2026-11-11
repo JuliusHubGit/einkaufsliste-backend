@@ -22,7 +22,9 @@ public record NeuesRezept(
     @NotNull(message = "Bitte eine Schwierigkeit wählen")
     Schwierigkeit schwierigkeit,
 
-    List<@Valid NeueZutat> zutaten
+    List<@Valid NeueZutat> zutaten,
+
+    List<@Valid NeuerSchritt> schritte
 ) {
 
     public record NeueZutat(
@@ -35,6 +37,19 @@ public record NeuesRezept(
         @NotBlank(message = "Bitte eine Einheit eingeben")
         @Size(max = 20, message = "Die Einheit darf höchstens 20 Zeichen lang sein")
         String einheit
+    ) {
+    }
+
+    /**
+     * @param zutaten Positionen (ab 0) in der Zutatenliste desselben Rezepts, da die Zutaten
+     *                beim Anlegen noch keine Id haben
+     */
+    public record NeuerSchritt(
+        @NotBlank(message = "Bitte den Schritt beschreiben")
+        @Size(max = 2000, message = "Die Beschreibung darf höchstens 2000 Zeichen lang sein")
+        String beschreibung,
+
+        List<Integer> zutaten
     ) {
     }
 }
